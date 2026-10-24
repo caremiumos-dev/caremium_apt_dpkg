@@ -1,0 +1,164 @@
+diff -ruN /tmp/apt-pristine/apt-3.0.3/CMake/apti18n.h.in src/apt-3.0.3/CMake/apti18n.h.in
+--- a/CMake/apti18n.h.in	2025-06-25 01:02:46.000000000 +0800
++++ b/CMake/apti18n.h.in	2026-10-24 21:19:55.767345241 +0800
+@@ -22,10 +22,10 @@
+ # define N_(x) x
+ #else
+ // apt will not use any gettext
+-extern "C" inline char* setlocale(int, const char*) throw() { return nullptr; }
+-extern "C" inline char* textdomain(const char*) throw() { return nullptr; }
+-extern "C" inline char* bindtextdomain(const char*, const char*) throw() { return nullptr; }
+-extern "C" inline char* dgettext(const char*, const char* msg) throw() { return const_cast<char*>(msg); }
++extern "C" inline char* setlocale(int, const char*) { return nullptr; }
++extern "C" inline char* textdomain(const char*) { return nullptr; }
++extern "C" inline char* bindtextdomain(const char*, const char*) { return nullptr; }
++extern "C" inline char* dgettext(const char*, const char* msg) { return const_cast<char*>(msg); }
+ # define _(x) x
+ # define P_(msg,plural,n) (n == 1 ? msg : plural)
+ # define N_(x) x
+diff -ruN /tmp/apt-pristine/apt-3.0.3/apt-pkg/contrib/fileutl.cc src/apt-3.0.3/apt-pkg/contrib/fileutl.cc
+--- a/apt-pkg/contrib/fileutl.cc	2025-06-25 01:02:46.000000000 +0800
++++ b/apt-pkg/contrib/fileutl.cc	2026-10-24 21:21:06.735462833 +0800
+@@ -1846,12 +1846,12 @@
+ 	 // Drain compressed buffer as far as possible.
+ 	 ZSTD_inBuffer in = {
+ 	    .src = zstd_buffer.get(),
+-	    .size = zstd_buffer.size(),
++	    .size = static_cast<size_t>(zstd_buffer.size()),
+ 	    .pos = 0,
+ 	 };
+ 	 ZSTD_outBuffer out = {
+ 	    .dst = To,
+-	    .size = Size,
++	    .size = static_cast<size_t>(Size),
+ 	    .pos = 0,
+ 	 };
+ 
+@@ -1884,12 +1884,12 @@
+       // Drain compressed buffer as far as possible.
+       ZSTD_outBuffer out = {
+ 	 .dst = zstd_buffer.buffer,
+-	 .size = zstd_buffer.buffersize_max,
++	 .size = static_cast<size_t>(zstd_buffer.buffersize_max),
+ 	 .pos = 0,
+       };
+       ZSTD_inBuffer in = {
+ 	 .src = From,
+-	 .size = Size,
++	 .size = static_cast<size_t>(Size),
+ 	 .pos = 0,
+       };
+ 
+@@ -1928,7 +1928,7 @@
+ 	    {
+ 	       ZSTD_outBuffer out = {
+ 		  .dst = zstd_buffer.buffer,
+-		  .size = zstd_buffer.buffersize_max,
++		  .size = static_cast<size_t>(zstd_buffer.buffersize_max),
+ 		  .pos = 0,
+ 	       };
+ 	       res = ZSTD_endStream(cctx, &out);
+diff -ruN /tmp/apt-pristine/apt-3.0.3/apt-pkg/solver3.h src/apt-3.0.3/apt-pkg/solver3.h
+--- a/apt-pkg/solver3.h	2025-06-25 01:02:46.000000000 +0800
++++ b/apt-pkg/solver3.h	2026-10-24 21:24:04.579551836 +0800
+@@ -67,6 +67,33 @@
+ using FastContiguousCacheMap = ContiguousCacheMap<K, V, true>;
+ 
+ /*
++ * Minimal FIFO that works with an incomplete value type (bionic's libc++
++ * instantiates std::deque's block size eagerly, which std::queue<Var> can't
++ * satisfy while Var is only forward-declared).
++ */
++template <typename T>
++class fifo
++{
++   std::vector<T> v;
++   size_t head = 0;
++
++   public:
++   bool empty() const { return head == v.size(); }
++   size_t size() const { return v.size() - head; }
++   T &front() { return v[head]; }
++   T const &front() const { return v[head]; }
++   void pop()
++   {
++      if (++head == v.size())
++      {
++         v.clear();
++         head = 0;
++      }
++   }
++   void push(T const &x) { v.push_back(x); }
++};
++
++/*
+  * \brief APT 3.0 solver
+  *
+  * This is a simple solver focused on understandability and sensible results, it
+@@ -212,9 +239,9 @@
+    std::vector<Solved> solved{};
+ 
+    // \brief Propagation queue
+-   std::queue<Var> propQ;
++   fifo<Var> propQ;
+    // \brief Discover variables
+-   std::queue<Var> discoverQ;
++   fifo<Var> discoverQ;
+ 
+    // \brief Current decision level.
+    //
+diff -ruN /tmp/apt-pristine/apt-3.0.3/apt-private/private-download.cc src/apt-3.0.3/apt-private/private-download.cc
+--- a/apt-private/private-download.cc	2025-06-25 01:02:46.000000000 +0800
++++ b/apt-private/private-download.cc	2026-10-24 21:24:40.421228131 +0800
+@@ -126,7 +126,7 @@
+ 									/*}}}*/
+ bool CheckFreeSpaceBeforeDownload(std::string const &Dir, unsigned long long FetchBytes)/*{{{*/
+ {
+-   uint32_t const RAMFS_MAGIC = 0x858458f6;
++   uint32_t const RAMFS_MAGIC_VALUE = 0x858458f6;
+    /* Check for enough free space, but only if we are actually going to
+       download */
+    if (_config->FindB("APT::Get::Print-URIs", false) == true ||
+@@ -150,7 +150,7 @@
+ 	 struct statfs Stat;
+ 	 if (statfs(Dir.c_str(),&Stat) != 0
+ #ifdef HAVE_STRUCT_STATFS_F_TYPE
+-	       || Stat.f_type != RAMFS_MAGIC
++	       || Stat.f_type != RAMFS_MAGIC_VALUE
+ #endif
+ 	    )
+ 	    return _error->Error(_("You don't have enough free space in %s."),
+diff -ruN /tmp/apt-pristine/apt-3.0.3/apt-private/private-output.cc src/apt-3.0.3/apt-private/private-output.cc
+--- a/apt-private/private-output.cc	2025-06-25 01:02:46.000000000 +0800
++++ b/apt-private/private-output.cc	2026-10-24 21:25:09.938136696 +0800
+@@ -15,6 +15,7 @@
+ #include <apt-private/private-cachefile.h>
+ #include <apt-private/private-output.h>
+ 
++#include <array>
+ #include <csignal>
+ #include <cstdio>
+ #include <cstdlib>
+diff -ruN /tmp/apt-pristine/apt-3.0.3/ftparchive/apt-ftparchive.cc src/apt-3.0.3/ftparchive/apt-ftparchive.cc
+--- a/ftparchive/apt-ftparchive.cc	2025-06-25 01:02:46.000000000 +0800
++++ b/ftparchive/apt-ftparchive.cc	2026-10-24 21:25:32.078585454 +0800
+@@ -10,6 +10,7 @@
+ 									/*}}}*/
+ // Include Files							/*{{{*/
+ #include <config.h>
++#include <array>
+ 
+ #include <apt-pkg/cmndline.h>
+ #include <apt-pkg/configuration.h>
+diff -ruN /tmp/apt-pristine/apt-3.0.3/methods/connect.cc src/apt-3.0.3/methods/connect.cc
+--- a/methods/connect.cc	2025-06-25 01:02:46.000000000 +0800
++++ b/methods/connect.cc	2026-10-24 21:24:40.418979180 +0800
+@@ -199,7 +199,7 @@
+ {
+    // Check the socket for an error condition
+    unsigned int Err;
+-   unsigned int Len = sizeof(Err);
++   socklen_t Len = sizeof(Err);
+    if (getsockopt(Fd->Fd(), SOL_SOCKET, SO_ERROR, &Err, &Len) != 0)
+    {
+       _error->Errno("getsockopt", _("Failed"));
