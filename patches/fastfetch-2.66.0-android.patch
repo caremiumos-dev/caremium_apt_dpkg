@@ -1,0 +1,68 @@
+diff -ruN -x build /tmp/ffp/fastfetch-2.66.0/CMakeLists.txt src/fastfetch-2.66.0/CMakeLists.txt
+--- /tmp/ffp/fastfetch-2.66.0/CMakeLists.txt	2026-07-10 15:04:09.000000000 +0800
++++ src/fastfetch-2.66.0/CMakeLists.txt	2026-10-25 10:46:13.252185280 +0800
+@@ -655,7 +655,7 @@
+         src/detection/brightness/brightness_nosupport.c
+         src/detection/btrfs/btrfs_nosupport.c
+         src/detection/chassis/chassis_nosupport.c
+-        src/detection/codec/codec_android.c
++        src/detection/codec/codec_android_stub.c
+         src/detection/cpu/cpu_linux.c
+         src/detection/cpucache/cpucache_linux.c
+         src/detection/cursor/cursor_linux.c
+@@ -2006,7 +2006,7 @@
+         target_compile_definitions(libfastfetch PUBLIC FF_HAVE_LINUX_VIDEODEV2=1)
+     endif()
+ endif()
+-if(NOT WIN32)
++if(NOT WIN32 AND NOT ANDROID)
+     CHECK_INCLUDE_FILE("utmpx.h" HAVE_UTMPX)
+     if(HAVE_UTMPX)
+         target_compile_definitions(libfastfetch PUBLIC FF_HAVE_UTMPX=1)
+diff -ruN -x build /tmp/ffp/fastfetch-2.66.0/src/common/library.h src/fastfetch-2.66.0/src/common/library.h
+--- /tmp/ffp/fastfetch-2.66.0/src/common/library.h	2026-07-10 15:04:09.000000000 +0800
++++ src/fastfetch-2.66.0/src/common/library.h	2026-10-25 10:45:44.881260035 +0800
+@@ -37,7 +37,6 @@
+ 
+     #define FF_LIBRARY_LOAD(libraryObjectName, returnValue, libraryFileName, maxVersion, ...)                                          \
+         void* FF_A_CLEANUP(ffLibraryUnload) libraryObjectName = ffLibraryLoadSingle(libraryFileName, maxVersion);                      \
+-        __VA_OPT__(if (__builtin_expect(libraryObjectName == NULL, false)) libraryObjectName = ffLibraryLoadMulti(__VA_ARGS__, NULL);) \
+         if (__builtin_expect(libraryObjectName == NULL, false))                                                                        \
+             return returnValue;
+ 
+diff -ruN -x build /tmp/ffp/fastfetch-2.66.0/src/detection/codec/codec_android_stub.c src/fastfetch-2.66.0/src/detection/codec/codec_android_stub.c
+--- /tmp/ffp/fastfetch-2.66.0/src/detection/codec/codec_android_stub.c	1970-01-01 08:00:00.000000000 +0800
++++ src/fastfetch-2.66.0/src/detection/codec/codec_android_stub.c	2026-10-25 10:44:48.000584707 +0800
+@@ -0,0 +1,9 @@
++/* Android codec detection is disabled for the NDK r21 build:
++ * codec_android.c relies on C23 __VA_OPT__ (via FF_LIBRARY_LOAD_* macros)
++ * and on AMediaCodec_getName(), which only exists in newer NDK platforms. */
++#include "codec.h"
++
++const char* ffDetectCodecNative(FFCodecOptions* options, FFlist* result /*list of FFCodecResult*/) {
++    FF_UNUSED(options, result);
++    return "Codec detection is not available in this build";
++}
+diff -ruN -x build /tmp/ffp/fastfetch-2.66.0/src/detection/opengl/opengl_linux.c src/fastfetch-2.66.0/src/detection/opengl/opengl_linux.c
+--- /tmp/ffp/fastfetch-2.66.0/src/detection/opengl/opengl_linux.c	2026-07-10 15:04:09.000000000 +0800
++++ src/fastfetch-2.66.0/src/detection/opengl/opengl_linux.c	2026-10-25 10:45:44.886482791 +0800
+@@ -6,7 +6,7 @@
+ 
+ #if __ANDROID__ && !defined(FF_HAVE_EGL)
+     // On Android, installing OpenGL headers is enough (mesa-dev)
+-    #if __has_include(<EGL/egl.h>)
++    #if 0 /* Android NDK r21: no GL/gl.h, disable auto EGL detection */
+         #define FF_HAVE_EGL 1
+     #endif
+ #endif
+diff -ruN -x build /tmp/ffp/fastfetch-2.66.0/src/detection/users/users_linux.c src/fastfetch-2.66.0/src/detection/users/users_linux.c
+--- /tmp/ffp/fastfetch-2.66.0/src/detection/users/users_linux.c	2026-07-10 15:04:09.000000000 +0800
++++ src/fastfetch-2.66.0/src/detection/users/users_linux.c	2026-10-25 10:46:13.257419953 +0800
+@@ -13,6 +13,7 @@
+     #define utmpx utmp
+     #define setutxent setutent
+     #define getutxent getutent
++    #define endutxent endutent
+ #endif
+ #if __linux__ || __GNU__
+     #include <netinet/in.h>

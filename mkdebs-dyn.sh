@@ -34,6 +34,7 @@ mkdeb() {
         echo "Section: $section"
         echo "Priority: $prio"
         [ -n "$depends" ] && echo "Depends: $depends"
+        [ -n "${EXTRA_FIELDS:-}" ] && printf "%b\n" "$EXTRA_FIELDS"
         echo "Description: $desc"
         echo " Built from the Android platform source tree for Caremium."
     } > "$root/DEBIAN/control"
@@ -41,8 +42,8 @@ mkdeb() {
     ( cd "$root" && echo 2.0 > "$WORK/debian-binary" \
         && tar --owner=0 --group=0 --numeric-owner -czf "$WORK/control.tar.gz" -C DEBIAN . \
         && tar --owner=0 --group=0 --numeric-owner -czf "$WORK/data.tar.gz" -C . ./system )
-    rm -f "$OUT/${name}_${ver}_${ARCH}.deb"
-    ar rc "$OUT/${name}_${ver}_${ARCH}.deb" "$WORK/debian-binary" "$WORK/control.tar.gz" "$WORK/data.tar.gz"
+    rm -f "$DEBOUT/${name}_${ver}_${ARCH}.deb"
+    ar rc "$DEBOUT/${name}_${ver}_${ARCH}.deb" "$WORK/debian-binary" "$WORK/control.tar.gz" "$WORK/data.tar.gz"
     echo "  $name $ver"
 }
 
@@ -54,7 +55,9 @@ mkdeb libiconv1    1.18   libs required "bionic" "iconv/charset conversion libra
 mkdeb libdb5.3     5.3.28 libs optional "bionic" "Berkeley DB runtime library"      lib/libdb-5.3.so lib/libdb.so lib/libdb-5.so
 mkdeb libxxhash0   0.8.3  libs required "bionic" "xxHash runtime library"           lib/libxxhash.so*
 mkdeb libglob0     1.0    libs required "bionic" "glob(3) compatibility library"    lib/libglob.so
+EXTRA_FIELDS="Replaces: libc++ (<< 9.0.8)\nBreaks: libc++ (<< 9.0.8)\nProvides: libc++"
 mkdeb libc++1      9.0.8  libs required "bionic" "LLVM libc++ runtime"              lib/libc++_shared.so
+EXTRA_FIELDS=""
 mkdeb libapt-pkg7.0 3.0.3 libs important "libbz2-1.0, liblzma5, liblz4-1, libzstd1, libiconv1, libxxhash0, libglob0, libc++1, libssl3, zlib1g, bionic" \
       "APT package management library" lib/libapt-pkg.so*
 

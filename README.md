@@ -222,3 +222,38 @@ dpkg 支持 `--host=arm-linux-androideabi`：补丁 `patches/dpkg-1.22.22-androi
 
 生成的 deb：`libbz2-1.0 libzstd1 libmd0 libiconv1 libdb5.3 libxxhash0 libglob0
 libc++1 liblzma5 liblz4-1 libssl3 openssl libapt-pkg7.0 apt dpkg tar`
+
+## bionic-compat 包
+
+`bionic-compat` / `bionic-compat-dev` / `bionic-compat-static` 把 bionic < API 28
+缺的符号做成独立库（`mkdebs-compat.sh`）：
+
+- `glob()`/`globfree()`（bionic API 28 才有）
+- `getservbyport_r()`、`dn_skipname()`
+- busybox 额外用到的 `getusershell()` 家族、`getrandom()`、`ether_hostton()`、
+  `sigisemptyset()`、`gethostid()`、`getlogin_r()`、`syncfs()`（全部 weak，
+  避免和 bionic 静态库重复定义）
+
+库名 `libbionic-compat.so`/`.a`，头文件 `glob.h`/`bionic-compat.h`。
+
+## fastfetch 2.66.0
+
+`patches/fastfetch-2.66.0-android.patch`（2.67+ 需要 C23，NDK r21 的 clang 9 不支持）：
+
+- `library.h` 去掉 `__VA_OPT__`
+- Android 下关闭自动 EGL 检测（无 `GL/gl.h`）
+- `users_linux.c` 补 `endutxent -> endutent`
+- `codec_android.c` 换成 stub（依赖 API 29 的 `AMediaCodec_getName`）
+- Android 跳过 `utmpx.h` 检测
+
+依赖 `bionic-compat`；安装到 `/system/bin/fastfetch`。
+
+## busybox 1.36.1
+
+基于上游 `configs/android_ndk_defconfig`，`CONFIG_EXTRA_LDLIBS="bionic-compat"`，
+`patches/busybox-1.36.1-android.patch` 处理 `struct in6_ifreq` 重复定义与
+`setbit/clrbit` 宏。
+
+- `busybox`：动态链接，仅装 `/system/bin/busybox`（不建 applet 符号链接）
+- `busybox-static`：静态链接，仅装 `/system/bin/busybox`
+- 两者 `Conflicts/Replaces` 互斥

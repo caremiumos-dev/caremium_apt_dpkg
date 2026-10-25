@@ -1,0 +1,69 @@
+--- networking/ifconfig.c	2021-01-01 18:52:27.000000000 +0800
++++ /home/android-build/android-deb/src/busybox-1.36.1/networking/ifconfig.c	2026-10-25 10:52:10.923330115 +0800
+@@ -127,7 +127,7 @@
+ # define IFF_DYNAMIC     0x8000	/* dialup device with changing addresses */
+ #endif
+ 
+-#if ENABLE_FEATURE_IPV6
++#if ENABLE_FEATURE_IPV6 && !defined(__ANDROID__)
+ struct in6_ifreq {
+ 	struct in6_addr ifr6_addr;
+ 	uint32_t ifr6_prefixlen;
+@@ -269,7 +269,7 @@
+ 	{ "SIFMAP",     SIOCSIFMAP,     ifreq_offsetof(ifr_map.base_addr) },
+ 	{ "SIFMAP",     SIOCSIFMAP,     ifreq_offsetof(ifr_map.irq) },
+ #endif
+-#if ENABLE_FEATURE_IPV6
++#if ENABLE_FEATURE_IPV6 && !defined(__ANDROID__)
+ 	{ "SIFADDR",    SIOCSIFADDR,    ifreq_offsetof(ifr_addr) }, /* IPv6 version ignores the offset */
+ 	{ "DIFADDR",    SIOCDIFADDR,    ifreq_offsetof(ifr_addr) }, /* IPv6 version ignores the offset */
+ #endif
+@@ -299,7 +299,7 @@
+ 	{ "io_addr",     N_ARG,         ARG_IO_ADDR,     0 },
+ 	{ "irq",         N_ARG,         ARG_IRQ,         0 },
+ #endif
+-#if ENABLE_FEATURE_IPV6
++#if ENABLE_FEATURE_IPV6 && !defined(__ANDROID__)
+ 	{ "add",         N_ARG,         ARG_ADD_DEL,     0 },
+ 	{ "del",         N_ARG,         ARG_ADD_DEL,     0 },
+ #endif
+@@ -432,7 +432,7 @@
+ #endif
+ 						else {
+ 							len_and_sockaddr *lsa;
+-#if ENABLE_FEATURE_IPV6
++#if ENABLE_FEATURE_IPV6 && !defined(__ANDROID__)
+ 							char *prefix;
+ 							int prefix_len = 0;
+ 							prefix = strchr(host, '/');
+@@ -443,7 +443,7 @@
+  resolve:
+ #endif
+ 							lsa = xhost2sockaddr(host, 0);
+-#if ENABLE_FEATURE_IPV6
++#if ENABLE_FEATURE_IPV6 && !defined(__ANDROID__)
+ 							if (lsa->u.sa.sa_family != AF_INET6 && prefix) {
+ /* TODO: we do not support "ifconfig eth0 up 1.2.3.4/17".
+  * For now, just make it fail instead of silently ignoring "/17" part:
+--- networking/interface.c	2023-01-03 22:14:43.000000000 +0800
++++ /home/android-build/android-deb/src/busybox-1.36.1/networking/interface.c	2026-10-25 10:52:25.935696309 +0800
+@@ -54,7 +54,7 @@
+ #define _PATH_PROCNET_IFINET6           "/proc/net/if_inet6"
+ 
+ #ifdef HAVE_AFINET6
+-# ifndef _LINUX_IN6_H
++# if !defined(_LINUX_IN6_H) && !defined(__ANDROID__)
+ /*
+  * This is from linux/include/net/ipv6.h
+  */
+--- include/platform.h	2023-01-03 22:14:43.000000000 +0800
++++ /home/android-build/android-deb/src/busybox-1.36.1/include/platform.h	2026-10-25 10:55:15.744299862 +0800
+@@ -575,7 +575,7 @@
+ extern int ttyname_r(int fd, char *buf, size_t buflen);
+ #endif
+ 
+-#ifndef HAVE_SETBIT
++#if !defined(HAVE_SETBIT) || defined(__ANDROID__)
+ # define setbit(a, b)  ((a)[(b) >> 3] |= 1 << ((b) & 7))
+ # define clrbit(a, b)  ((a)[(b) >> 3] &= ~(1 << ((b) & 7)))
+ #endif
