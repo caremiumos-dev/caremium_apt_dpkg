@@ -103,8 +103,10 @@ apt-3.0.3：
 6. `apt-private/private-output.cc`、`ftparchive/apt-ftparchive.cc`：
    补 `#include <array>`（libstdc++ 会间接包含，libc++ 不会）。
 
-dpkg：无源码补丁。configure 用 `--host=arm-linux-gnueabihf` 只是为了让
-dpkg 的 `cputable/ostable` 识别出 `armhf`（编译器仍由 CC/CFLAGS 指定为 NDK clang）。
+dpkg：`patches/dpkg-1.22.22-androideabi.patch` 给 `data/ostable` 增加
+`linux-androideabi`、给 `data/tupletable` 增加 `eabihf-android-linux-{arm,arm64}`
+映射（→ `armhf`/`arm64`）。configure 直接用 `--host=arm-linux-androideabi`，
+编译器仍由 CC/CFLAGS 指定为 NDK clang，不再用 `gnueabihf` 冒充。
 
 ## bionic 兼容层（compat/）
 
@@ -164,7 +166,8 @@ source env.sh
 
 # 2. dpkg 1.22.22
 cd dpkg-1.22.22
-TAR=/usr/bin/tar ./configure --host=arm-linux-gnueabihf \
+patch -p1 < ../patches/dpkg-1.22.22-androideabi.patch
+TAR=/usr/bin/tar ./configure --host=arm-linux-androideabi \
   --prefix=/system/usr --libdir=/system/lib --bindir=/system/bin \
   --sbindir=/system/bin --libexecdir=/system/usr/libexec \
   --sysconfdir=/system/etc --localstatedir=/system/usr/var \
@@ -216,9 +219,9 @@ bash mkdebs-dyn.sh                                             # 生成 16 个 d
 
 所有 ELF 都带 `DT_RUNPATH=/system/usr/local/liblzma/lib:/system/usr/local/liblz4/lib:/system/usr/local/openssl/lib`。
 
-dpkg 支持 `--host=arm-linux-androideabi`：补丁 `patches/dpkg-1.22.22-androideabi.patch`
-在 `data/ostable` 增加 `linux-androideabi`、`data/tupletable` 映射到 `armhf/arm64`
-（config.sub 本身已接受该三元组），因此不再需要用 `gnueabihf` 冒充。
+dpkg 的 `--host=arm-linux-androideabi` 支持见上文「对上游源码的补丁」：
+必须先应用 `patches/dpkg-1.22.22-androideabi.patch`，否则 configure 会拒绝
+该三元组（`data/ostable`/`data/tupletable` 没有对应条目）。
 
 生成的 deb：`libbz2-1.0 libzstd1 libmd0 libiconv1 libdb5.3 libxxhash0 libglob0
 libc++1 liblzma5 liblz4-1 libssl3 openssl libapt-pkg7.0 apt dpkg tar`
