@@ -257,3 +257,58 @@ libc++1 liblzma5 liblz4-1 libssl3 openssl libapt-pkg7.0 apt dpkg tar`
 - `busybox`：动态链接，仅装 `/system/bin/busybox`（不建 applet 符号链接）
 - `busybox-static`：静态链接，仅装 `/system/bin/busybox`
 - 两者 `Conflicts/Replaces` 互斥
+
+## GNU Bash 5.2.37
+
+`patches/bash-5.2.37-android.patch`（改 `config-top.h`）：
+
+- 默认 `PATH` → `/system/bin:/system/xbin:/sbin:/vendor/bin:/odm/bin`
+- `STANDARD_UTILS_PATH`、`DEFAULT_LOADABLE_BUILTINS_PATH`（`/system/lib/bash`）
+- 启用 `SYS_BASHRC="/system/etc/bash.bashrc"`，该文件按 Debian 系统级配置设置
+  `PS1='${debian_chroot:+($debian_chroot)}\u@\h:\w\$ '`
+
+构建：NDK r21 / API 27，bundled readline，`--without-bash-malloc --disable-nls`。
+注意宿主工具（mkbuiltins 等）要用 `CFLAGS_FOR_BUILD='... -std=gnu11'`：GCC 15+
+默认 C23，会把 bash 的 K&R 定义当成 `(void)` 原型而报错。
+
+产物 `bash_5.2.37_armhf.deb`：`/system/bin/bash`、`/system/bin/bashbug`、
+`/system/etc/bash.bashrc`、man/info/doc；依赖 `bionic`。
+
+## GNU Coreutils 9.12
+
+`--enable-single-binary=symlinks` 构建，但**只打包 `/system/bin/coreutils`
+一个二进制**，不安装任何 applet 链接。coreutils 不支持 busybox 式
+`coreutils ls`，必须显式：
+
+```sh
+coreutils --coreutils-prog=ls -l /system
+coreutils --coreutils-prog=ginstall ...   # install 在单体模式内部名为 ginstall
+```
+
+configure 需 `--disable-year2038`（bionic 32 位 time_t），并关闭
+`acl/xattr/libcap/selinux`。产物 `coreutils_9.12_armhf.deb`，依赖 `bionic`。
+
+## SQLite 3.54.1
+
+按库拆成三个包：
+
+- `libsqlite3-0`：`/system/lib/libsqlite3.so.3.54.1` + `libsqlite3.so.0`
+  （SONAME `libsqlite3.so.0`）
+- `libsqlite3-dev`：`/system/usr/include/sqlite3{ext,}.h`、`libsqlite3.a`、
+  `.so` 链接、`/system/lib/pkgconfig/sqlite3.pc`
+- `sqlite3`：`/system/bin/sqlite3` + man1，CLI 对 amalgamation 静态链接，
+  运行时不依赖 `libsqlite3.so`
+
+启用 FTS4/FTS5、RTREE、JSON、math、dbstat、session、column metadata、zlib。
+`libz` 用系统自带的 `/system/lib/libz.so`，不重复打包；readline 未启用
+（没有独立 libreadline 包）。configure 对 `linux-androideabi` 不设 soname，
+链接时用 `make LDFLAGS.libsqlite3.soname='-Wl,-soname,libsqlite3.so.0'` 补上。
+
+所有 ELF 的 RUNPATH 设为
+`/system/usr/local/openssl/lib:/system/usr/local/liblzma/lib:/system/usr/local/liblz4/lib`
+（这些库不在 `/system/lib`），共享库另含 `/system/lib`。
+
+## 未移植
+
+- util-linux：`su`/`mount`/`umount`/`kill` 等会覆盖 toybox 并和 MagiskSU 冲突，
+  暂不移植。

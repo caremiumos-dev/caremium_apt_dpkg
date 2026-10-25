@@ -1,0 +1,36 @@
+--- a/config-top.h
++++ b/config-top.h
+@@ -63,7 +63,7 @@
+ /* The default value of the PATH variable. */
+ #ifndef DEFAULT_PATH_VALUE
+ #define DEFAULT_PATH_VALUE \
+-  "/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin:."
++  "/system/bin:/system/xbin:/sbin:/vendor/bin:/odm/bin"
+ #endif
+ 
+ /* If you want to unconditionally set a value for PATH in every restricted
+@@ -74,13 +74,13 @@
+    the Posix.2 confstr () function, or CS_PATH define are not present. */
+ #ifndef STANDARD_UTILS_PATH
+ #define STANDARD_UTILS_PATH \
+-  "/bin:/usr/bin:/sbin:/usr/sbin:/etc:/usr/etc"
++  "/system/bin:/system/xbin:/sbin:/vendor/bin"
+ #endif
+ 
+ /* The default path for enable -f */
+ #ifndef DEFAULT_LOADABLE_BUILTINS_PATH
+ #define DEFAULT_LOADABLE_BUILTINS_PATH \
+-  "/usr/local/lib/bash:/usr/lib/bash:/opt/local/lib/bash:/usr/pkg/lib/bash:/opt/pkg/lib/bash:."
++  "/system/lib/bash"
+ #endif
+ 
+ /* Default primary and secondary prompt strings. */
+@@ -97,7 +97,7 @@
+ #define DEFAULT_BASHRC "~/.bashrc"
+ 
+ /* System-wide .bashrc file for interactive shells. */
+-/* #define SYS_BASHRC "/etc/bash.bashrc" */
++#define SYS_BASHRC "/system/etc/bash.bashrc"
+ 
+ /* System-wide .bash_logout for login shells. */
+ /* #define SYS_BASH_LOGOUT "/etc/bash.bash_logout" */
