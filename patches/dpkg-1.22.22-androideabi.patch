@@ -1,0 +1,15 @@
+--- a/data/ostable
++++ b/data/ostable
+@@ -39,3 +39,4 @@
+ base-sysv-aix		aix			aix[^-]*
+ base-sysv-solaris	solaris			solaris[^-]*
+ base-tos-mint		mint			mint[^-]*
++eabihf-android-linux	linux-androideabi	linux[^-]*-androideabi
+--- a/data/tupletable
++++ b/data/tupletable
+@@ -67,3 +67,5 @@
+ base-sysv-solaris-sparc		solaris-sparc
+ base-sysv-solaris-sparc64	solaris-sparc64
+ base-tos-mint-m68k		mint-m68k
++eabihf-android-linux-arm	armhf
++eabihf-android-linux-arm64	arm64

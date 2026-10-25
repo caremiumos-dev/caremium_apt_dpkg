@@ -195,3 +195,30 @@ tar --owner=0 --group=0 --numeric-owner -czf caremium-apt-dpkg-armhf.tar.gz -C s
 
 `compat/` 里的 `glob.c`/`netcompat.c` 编译成 `libglob.a` 并静态链入 apt（bionic
 在 API 28 之前没有 `glob()`，也没有 `getservbyport_r()`/`dn_skipname()`）。
+
+## 动态链接版（mkdebs-dyn.sh）
+
+apt/dpkg 不再静态链接第三方库，依赖按 Debian 方式拆成独立 deb：
+
+```sh
+source env.sh && source dyn/env-dyn.sh
+# 依赖库用 --host=arm-linux-androideabi、--enable-shared --disable-static 构建
+cmake -DCMAKE_TOOLCHAIN_FILE=dyn/cmake-android-dyn.cmake ...   # apt
+bash mkdebs-dyn.sh                                             # 生成 16 个 deb
+```
+
+库的安装位置：
+
+| 情况 | 位置 |
+|---|---|
+| 与系统库无冲突 | `/system/lib`（libbz2/libzstd/libmd/libiconv/libdb/libxxhash/libglob/libc++/libapt-pkg） |
+| 与系统库冲突 | 各自的 `/system/usr/local/<name>/lib`（`liblzma`、`liblz4`、`openssl`） |
+
+所有 ELF 都带 `DT_RUNPATH=/system/usr/local/liblzma/lib:/system/usr/local/liblz4/lib:/system/usr/local/openssl/lib`。
+
+dpkg 支持 `--host=arm-linux-androideabi`：补丁 `patches/dpkg-1.22.22-androideabi.patch`
+在 `data/ostable` 增加 `linux-androideabi`、`data/tupletable` 映射到 `armhf/arm64`
+（config.sub 本身已接受该三元组），因此不再需要用 `gnueabihf` 冒充。
+
+生成的 deb：`libbz2-1.0 libzstd1 libmd0 libiconv1 libdb5.3 libxxhash0 libglob0
+libc++1 liblzma5 liblz4-1 libssl3 openssl libapt-pkg7.0 apt dpkg tar`
